@@ -38,10 +38,11 @@
 > with the device’s expected operating conditions.
 >
 > A USB-to-UART adapter was connected to the serial header using the following parameters:
->     - **Baud rate:** 115200
->     - **Logic level:** 3.3V
->     - **Interface:** TX, RX, GND
->
+
+- **Baud rate:** 115200
+- **Logic level:** 3.3V
+- **Interface:** TX, RX, GND
+
 > Upon boot, the serial console produced verbose debug output, confirming that the interface operates as a
 > standard 3.3V TTL UART. The boot log provided visibility into the bootloader stage, kernel initialization,
 > and early userspace processes.
