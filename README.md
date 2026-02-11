@@ -26,3 +26,22 @@
 > on owned hardware. The findings are intended to contribute to a better understanding of consumer
 > networking device security and configuration integrity, and to promote transparency in embedded
 > wireless system design.**
+
+## UART Access and Initial Observations
+
+> The Cudy RE3000 PCB exposes an accessible serial interface via clearly populated header pins. This
+> significantly simplified early-stage hardware reconnaissance compared to devices where UART pads must
+> be located manually.
+>
+> The device was powered using a laboratory power supply set to the nominal input voltage. Measurements
+> taken after the power transformer stage indicated a supply voltage in the range of **12.4–12.5 V**, consistent
+> with the device’s expected operating conditions.
+>
+> A USB-to-UART adapter was connected to the serial header using the following parameters:
+>     - **Baud rate:** 115200
+>     - **Logic level:** 3.3V
+>     - **Interface:** TX, RX, GND
+>
+> Upon boot, the serial console produced verbose debug output, confirming that the interface operates as a
+> standard 3.3V TTL UART. The boot log provided visibility into the bootloader stage, kernel initialization,
+> and early userspace processes.
