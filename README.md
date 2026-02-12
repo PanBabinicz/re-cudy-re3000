@@ -27,6 +27,36 @@
 > networking device security and configuration integrity, and to promote transparency in embedded
 > wireless system design.**
 
+## Hardware Reconnaissance and PCB Inspection
+
+> Before obtaining serial output from the device, the enclosure was carefully disassembled to allow inspection
+> of the printed circuit board (PCB). The primary objective at this stage was to identify potential debugging
+> interfaces and non-volatile storage components that could be useful for further analysis.
+>
+> The inspection focused on two key elements:
+
+- **Serial port header (UART interface)**
+- **External flash memory chip**
+
+> Clearly exposed header pins consistent with a UART interface were identified on the PCB. Their placement and
+> layout suggested a factory debugging interface, making them a natural starting point for low-level access.
+>
+> An external SPI flash memory chip was also located on the board. This component is typically used to store the
+> bootloader, kernel, root filesystem, and configuration data. Identifying this chip early was important, as it
+> represents a direct method of obtaining a full firmware dump if needed.
+>
+> The RF shielding covers protecting the main SoC and radio components were intentionally left in place during
+> this stage. Although removing them would have revealed exact MCU and RF chipset markings, the initial focus was
+> on accessible components relevant to firmware extraction and debugging rather than full hardware teardown.
+>
+> This hardware reconnaissance phase provided two critical entry points for further work:
+
+1. The UART interface for observing boot behavior.
+2. The external SPI flash for potential firmware extraction and analysis.
+
+> With these targets identified, the next step was to establish a serial connection and observe the device’s boot
+> process.
+
 ## UART Access and Initial Observations
 
 > The Cudy RE3000 PCB exposes an accessible serial interface via clearly populated header pins. This
