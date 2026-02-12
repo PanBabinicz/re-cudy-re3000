@@ -51,11 +51,16 @@
 >
 > This hardware reconnaissance phase provided two critical entry points for further work:
 
-1. The UART interface for observing boot behavior.
-2. The external SPI flash for potential firmware extraction and analysis.
+1. **The UART interface for observing boot behavior.**
+2. **The external SPI flash for potential firmware extraction and analysis.**
 
 > With these targets identified, the next step was to establish a serial connection and observe the device’s boot
 > process.
+
+![INTERNAL-1](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/internal-1.jpg)
+![FLASH](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/flash.jpg)
+![SERIAL](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/serial.jpg)
+
 
 ## UART Access and Initial Observations
 
