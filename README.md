@@ -61,7 +61,6 @@
 ![FLASH](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/flash.jpg)
 ![SERIAL](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/serial.jpg)
 
-
 ## UART Access and Initial Observations
 
 > The Cudy RE3000 PCB exposes an accessible serial interface via clearly populated header pins. This
@@ -81,3 +80,7 @@
 > Upon boot, the serial console produced verbose debug output, confirming that the interface operates as a
 > standard 3.3V TTL UART. The boot log provided visibility into the bootloader stage, kernel initialization,
 > and early userspace processes.
+
+![POWER-CONNECTION](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/power-connection.jpg)
+![UART-CONNECTION-1](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/uart-connection-1.jpg)
+![POWER-SUPPLY](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/power-supply.jpg)
