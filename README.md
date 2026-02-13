@@ -84,3 +84,4 @@
 ![POWER-CONNECTION](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/power-connection.jpg)
 ![UART-CONNECTION-1](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/uart-connection-1.jpg)
 ![POWER-SUPPLY](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/power-supply.jpg)
+![SERIAL-LOGS](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/serial-logs.jpg)
