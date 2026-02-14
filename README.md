@@ -85,3 +85,13 @@
 ![UART-CONNECTION-1](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/uart-connection-1.jpg)
 ![POWER-SUPPLY](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/power-supply.jpg)
 ![SERIAL-LOGS](https://github.com/PanBabinicz/re-cudy-re3000/blob/master/screenshots/serial-logs.jpg)
+
+## External Flash Removal and Firmware Extraction
+
+> After confirming that the UART interface did not provide interactive access, attention shifted to the external
+> SPI flash memory identified during the initial PCB inspection. Since the flash chip usually stores the bootloader,
+> kernel, and root filesystem, extracting its contents would allow full offline analysis of the firmware.
+>
+> The SPI flash chip was carefully desoldered from the PCB to enable direct access. Proper hot-air rework
+> techniques were used to minimize thermal stress and avoid damaging pads or surrounding components.
+> Once removed, the chip was placed in a suitable adapter compatible with the XGecu T48 universal programmer.
