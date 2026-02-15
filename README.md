@@ -95,3 +95,30 @@
 > The SPI flash chip was carefully desoldered from the PCB to enable direct access. Proper hot-air rework
 > techniques were used to minimize thermal stress and avoid damaging pads or surrounding components.
 > Once removed, the chip was placed in a suitable adapter compatible with the XGecu T48 universal programmer.
+>
+> After obtaining the firmware image, `binwalk` was used to analyze its internal structure and identify embedded
+> components. The scan revealed multiple structured regions, including device tree blobs and filesystem partitions.
+>
+> The relevant findings are shown below:
+
+```console
+-----------------------------------------------------------------------------------------------------------------------
+DECIMAL                            HEXADECIMAL                        DESCRIPTION
+-----------------------------------------------------------------------------------------------------------------------
+224352                             0x36C60                            Device tree blob (DTB), version: 17, CPU ID: 0,
+                                                                      total size: 586 bytes
+829929                             0xCA9E9                            Device tree blob (DTB), version: 17, CPU ID: 0,
+                                                                      total size: 7232 bytes
+983040                             0xF0000                            Device tree blob (DTB), version: 17, CPU ID: 0,
+                                                                      total size: 3386771 bytes
+4390912                            0x430000                           SquashFS file system, little endian, version:
+                                                                      4.0, compression: xz, inode count: 2068, block
+                                                                      size: 262144, image size: 9319386 bytes,
+                                                                      created: 2025-02-11 03:20:32
+13762560                           0xD20000                           JFFS2 filesystem, little endian, nodes: 3282,
+                                                                      total size: 2949132 bytes
+-----------------------------------------------------------------------------------------------------------------------
+
+Analyzed 1 file for 85 file signatures (187 magic patterns) in 32.0 milliseconds
+```
+> The file system structure:
