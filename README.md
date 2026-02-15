@@ -122,3 +122,27 @@ DECIMAL                            HEXADECIMAL                        DESCRIPTIO
 Analyzed 1 file for 85 file signatures (187 magic patterns) in 32.0 milliseconds
 ```
 > The file system structure:
+
+```console
+[km1t4h@nobody squashfs-root]$ ls -al
+total 68
+drwxr-xr-x 16 km1t4h km1t4h 4096 Feb 11  2025 .
+drwxr-xr-x  3 km1t4h km1t4h 4096 Feb 15 13:46 ..
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 bin
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 dev
+drwxr-xr-x 26 km1t4h km1t4h 4096 Feb 11  2025 etc
+-rwxr-xr-x  1 km1t4h km1t4h  276 Feb 11  2025 init
+drwxr-xr-x 11 km1t4h km1t4h 4096 Feb 11  2025 lib
+lrwxrwxrwx  1 km1t4h km1t4h    3 Feb 11  2025 lib64 -> lib
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 mnt
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 overlay
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 proc
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 rom
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 root
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 sbin
+drwxr-xr-x  2 km1t4h km1t4h 4096 Feb 11  2025 sys
+drwxrwxrwt  2 km1t4h km1t4h 4096 Feb 11  2025 tmp
+drwxr-xr-x  7 km1t4h km1t4h 4096 Feb 11  2025 usr
+lrwxrwxrwx  1 km1t4h km1t4h    3 Feb 11  2025 var -> tmp
+drwxr-xr-x  4 km1t4h km1t4h 4096 Feb 11  2025 www
+```
