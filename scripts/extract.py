@@ -1,0 +1,74 @@
+import sys
+import firmware_part as fwp
+
+class extractor:
+    def __init__(self):
+        self.firmware_parts = [
+            fwp.firmware_part("begin",    0x00000000, 0x00036C60 - 0x00000000),
+            fwp.firmware_part("dtb0",     0x00036C60, 0x000CA9E9 - 0x00036C60),
+            fwp.firmware_part("dtb1",     0x000CA9E9, 0x000F0000 - 0x000CA9E9),
+            fwp.firmware_part("dtb2",     0x000F0000, 0x00430000 - 0x000F0000),
+            fwp.firmware_part("squashfs", 0x00430000, 0x00D20000 - 0x00430000),
+            fwp.firmware_part("jffs2",    0x00D20000, 0x01000050 - 0x00D20000),
+        ]
+        self.op = None
+        self.file = None
+        self.argc = len(sys.argv)
+        if ( self.argc == 1):
+            print("Invalid use, check --help")
+            sys.exit()
+        elif (self.argc == 2):
+            self.op = sys.argv[1]
+            if (self.op == "--help"):
+                self.help()
+                sys.exit()
+            else:
+                print("Invalid use, check --help")
+                sys.exit()
+        elif (self.argc == 3):
+            print("Invalid use, check --help")
+        elif (self.argc == 4):
+            self.op = sys.argv[1]
+            self.file = sys.argv[2]
+            self.path = sys.argv[3]
+
+    def start(self):
+        if (self.op == "unpack"):
+            file_in = open(self.file, 'rb')
+            for part in self.firmware_parts:
+                file_out = open(self.path + "/" + part.name, 'wb')
+                file_in.seek(part.offset, 0)
+                data = file_in.read(part.size)
+                file_out.write(data)
+                file_out.close()
+            file_in.close()
+        elif (self.op == "pack"):
+            file_out = open(self.file, 'wb')
+            for i in range(5, len(self.firmware_parts) - 1):
+                part_curr = self.firmware_parts[i]
+                part_next = self.firmware_parts[i+1]
+                file_in = open(self.path + "/" + part_curr.name, 'rb')
+                data = file_in.read(part_curr.size)
+                file_out.write(data)
+                padding = (part_next.offset - (part_curr.offset + part_curr.size))
+                file_out.write(b'\xff' * padding)
+                print(f"Padding {part_curr.name} - {hex(padding)}")
+                file_in.close()
+            file_in = open(self.path + "/" + self.firmware_parts[len(self.firmware_parts)-1].name, 'rb')
+            data = file_in.read(self.firmware_parts[len(self.firmware_parts)-1].size)
+            file_out.write(data)
+            file_in.close()
+            padding = (8388688 - (self.firmware_parts[len(self.firmware_parts)-1].offset + self.firmware_parts[len(self.firmware_parts)-1].size))
+            file_out.write(b'\xff' * padding)
+            print(f"Padding {part_curr.name} - {hex(padding)}")
+            file_out.close()
+
+    def help(self):
+        print("Usage: python extract.py <operation: (pack/unpack)> <bin-file> <exctraction-path>")
+
+    def print_settings(self):
+        print("Operation: " + self.op)
+        print("File: " + self.file)
+
+dev = extractor()
+dev.start()
