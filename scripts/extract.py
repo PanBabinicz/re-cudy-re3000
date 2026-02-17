@@ -44,7 +44,7 @@ class extractor:
             file_in.close()
         elif (self.op == "pack"):
             file_out = open(self.file, 'wb')
-            for i in range(5, len(self.firmware_parts) - 1):
+            for i in range(0, len(self.firmware_parts) - 1):
                 part_curr = self.firmware_parts[i]
                 part_next = self.firmware_parts[i+1]
                 file_in = open(self.path + "/" + part_curr.name, 'rb')
