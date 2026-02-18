@@ -146,3 +146,25 @@ drwxr-xr-x  7 km1t4h km1t4h 4096 Feb 11  2025 usr
 lrwxrwxrwx  1 km1t4h km1t4h    3 Feb 11  2025 var -> tmp
 drwxr-xr-x  4 km1t4h km1t4h 4096 Feb 11  2025 www
 ```
+
+## Root Filesystem Modification and Size Constraints
+
+> After extracting and analyzing the firmware image, attention shifted to modifying the root filesystem to
+> introduce custom startup behavior. Inspection of the unpacked image revealed a standard embedded Linux layout
+> with initialization scripts handled through the `rc.common` framework.
+>
+> To introduce persistent behavior at boot time, the relevant initialization logic was modified within the
+> filesystem. The goal was to execute a custom networking command during system startup, allowing remote shell
+> access once the device completed boot.
+>
+> However, rebuilding the SquashFS image introduced a critical limitation: the firmware partition allocated for
+> the root filesystem had a strict maximum size of **9,371,648 bytes**. The unmodified SquashFS image already
+> occupied the entire allocated space. Any changes—even minor ones—resulted in a filesystem image that exceeded
+> this size constraint, causing the firmware to fail during boot.
+>
+> To resolve this constraint, non-essential files within the filesystem were identified and removed. In this case
+>  certain font files were deleted to free sufficient space while preserving core system functionality. This
+> allowed the rebuilt SquashFS image to remain below the maximum size limit.
+>
+> After ensuring the modified filesystem remained under the partition size limit, the image was padded to match
+> the original expected firmware size.
