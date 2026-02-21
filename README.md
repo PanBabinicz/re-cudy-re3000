@@ -168,3 +168,25 @@ drwxr-xr-x  4 km1t4h km1t4h 4096 Feb 11  2025 www
 >
 > After ensuring the modified filesystem remained under the partition size limit, the image was padded to match
 > the original expected firmware size.
+
+## Startup Script Injection Attempts
+
+> After successfully rebuilding and flashing the modified firmware, the next objective was to ensure that the
+> custom logic executed reliably during system startup.
+>
+> The initial approach was to create a standalone `backdoor.sh` script and trigger it during boot. However,
+> this method did not produce the expected behavior. The script did not execute.
+>
+> To improve reliability, the backdoor logic was embedded directly into existing initialization mechanisms.
+> First, it was inserted into an `rc.common`-based startup script, as this framework is commonly used in embedded
+> Linux systems (particularly OpenWrt-derived environments) to manage services. Despite correct syntax and
+> integration, the logic still failed to execute as intended.
+>
+> As an additional attempt, the logic was placed into the system-wide `profile` file to trigger execution upon
+> shell initialization. This also proved ineffective.
+>
+> To better understand the execution flow, the serial debug logs were closely analyzed during boot. This
+> investigation revealed that a script named `firewall.include` was executed in certain condition as part of
+> the networking and firewall initialization stage. This script appeared to be a promising candidate for reliable
+> code execution. The next step was therefore to embed the backdoor logic within `firewall.include` and observe
+> whether it executed consistently during boot.
