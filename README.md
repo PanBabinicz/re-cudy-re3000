@@ -190,3 +190,13 @@ drwxr-xr-x  4 km1t4h km1t4h 4096 Feb 11  2025 www
 > the networking and firewall initialization stage. This script appeared to be a promising candidate for reliable
 > code execution. The next step was therefore to embed the backdoor logic within `firewall.include` and observe
 > whether it executed consistently during boot.
+
+```console
+ * Set tcp_ecn to off
+ * Set tcp_syncookies to on
+ * Set tcp_window_scaling to on
+ * Running script '/usr/share/filter/firewall.include'
+iptables v1.8.7 (legacy): Couldn't load match `ttl':No such file or directory
+
+Try `iptables -h' or 'iptables --help' for more information.
+```
