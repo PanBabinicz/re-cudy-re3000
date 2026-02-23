@@ -200,3 +200,18 @@ iptables v1.8.7 (legacy): Couldn't load match `ttl':No such file or directory
 
 Try `iptables -h' or 'iptables --help' for more information.
 ```
+
+## Execution Attempt on Current Firmware
+
+> An attempt was made to embed the backdoor logic into the `firewall.include` script within the current firmware
+> image. The firmware was rebuilt and flashed successfully, and the system booted without errors.
+>
+> However, the device did not execute the modified script during startup. Despite verifying that the file was
+> properly altered within the SquashFS image, it was not possible to reproduce execution of the injected logic.
+> No observable behavior indicated that the script was triggered during the boot process.
+>
+> It is important to note that the previously presented serial logs were captured from the
+> **latest firmware image**, not from the current firmware version analyzed in this section.
+>
+> Given the inability to trigger execution on the current firmware, further testing and modification will be
+> conducted directly on the latest firmware release.
