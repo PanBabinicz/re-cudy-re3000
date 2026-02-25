@@ -215,3 +215,20 @@ Try `iptables -h' or 'iptables --help' for more information.
 >
 > Given the inability to trigger execution on the current firmware, further testing and modification will be
 > conducted directly on the latest firmware release.
+
+## Attempted Firmware Upgrade via Management Interface
+
+> During the analysis, it was discovered that the device provides a firmware upgrade mechanism accessible through
+> its web-based management interface. The update process can be initiated by connecting to the device via its IP
+> address and uploading a firmware image through the administrative panel.
+>
+> This mechanism presented a potentially cleaner alternative to directly modifying and reflashing the external
+> SPI flash chip. However, after rebuilding the modified firmware image and attempting to upload it through the
+> official update interface, the process failed.
+>
+> The management tool rejected the modified firmware due to an invalid checksum. This indicates that the firmware
+> upgrade mechanism performs integrity validation before accepting and applying an update. Even when the overall
+> image size was preserved, internal modifications caused the checksum verification step to fail.
+>
+> As a result, the web-based upgrade path could not be used for now to deploy modified firmware images without
+> replicating or bypassing the integrity verification process.
