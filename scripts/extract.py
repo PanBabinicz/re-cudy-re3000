@@ -3,6 +3,7 @@ import firmware_part as fwp
 
 class extractor:
     def __init__(self):
+        """ factory firmware
         self.firmware_parts = [
             fwp.firmware_part("begin",    0x00000000, 0x00036C60 - 0x00000000),
             fwp.firmware_part("dtb0",     0x00036C60, 0x000CA9E9 - 0x00036C60),
@@ -10,6 +11,15 @@ class extractor:
             fwp.firmware_part("dtb2",     0x000F0000, 0x00430000 - 0x000F0000),
             fwp.firmware_part("squashfs", 0x00430000, 0x00D20000 - 0x00430000),
             fwp.firmware_part("jffs2",    0x00D20000, 0x01000050 - 0x00D20000),
+        ]
+        """
+
+        # 2.4.17-20250811-185007
+        self.firmware_parts = [
+            fwp.firmware_part("begin",    0x00000000, 0x0005A9F9 - 0x00000000),
+            fwp.firmware_part("dtb0",     0x0005A9F9, 0x00080800 - 0x0005A9F9),
+            fwp.firmware_part("dtb1",     0x00080800, 0x003C0800 - 0x00080800),
+            fwp.firmware_part("squashfs", 0x003C0800, 0x00CC08F5 - 0x003C0800),
         ]
         self.op = None
         self.file = None
