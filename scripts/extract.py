@@ -68,6 +68,7 @@ class extractor:
             data = file_in.read(self.firmware_parts[len(self.firmware_parts)-1].size)
             file_out.write(data)
             file_in.close()
+            # TODO: Change the hardcoded padding size.
             padding = (8388688 - (self.firmware_parts[len(self.firmware_parts)-1].offset + self.firmware_parts[len(self.firmware_parts)-1].size))
             file_out.write(b'\xff' * padding)
             print(f"Padding {part_curr.name} - {hex(padding)}")
