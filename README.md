@@ -232,3 +232,7 @@ Try `iptables -h' or 'iptables --help' for more information.
 >
 > As a result, the web-based upgrade path could not be used for now to deploy modified firmware images without
 > replicating or bypassing the integrity verification process.
+>
+> Discovered the `validate_firmware_image` POSIX shell script, which may be invoked by the web-based management
+> interface during firmware upgrades to perform integrity checks such as checksum validation, model verification,
+> and size enforcement.
