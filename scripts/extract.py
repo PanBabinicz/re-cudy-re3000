@@ -19,7 +19,7 @@ class extractor:
             fwp.firmware_part("begin",    0x00000000, 0x0005A9F9 - 0x00000000),
             fwp.firmware_part("dtb0",     0x0005A9F9, 0x00080800 - 0x0005A9F9),
             fwp.firmware_part("dtb1",     0x00080800, 0x003C0800 - 0x00080800),
-            fwp.firmware_part("squashfs", 0x003C0800, 0x00CC08F5 - 0x003C0800),
+            fwp.firmware_part("squashfs", 0x003C0800, 0x008A5000 - 0x003C0800),
         ]
         self.op = None
         self.file = None
@@ -35,12 +35,13 @@ class extractor:
             else:
                 print("Invalid use, check --help")
                 sys.exit()
-        elif (self.argc == 3):
-            print("Invalid use, check --help")
-        elif (self.argc == 4):
+        elif (self.argc == 5):
             self.op = sys.argv[1]
-            self.file = sys.argv[2]
-            self.path = sys.argv[3]
+            self.truncate = int(sys.argv[2])
+            self.file = sys.argv[3]
+            self.path = sys.argv[4]
+        else:
+            print("Invalid use, check --help")
 
     def start(self):
         if (self.op == "unpack"):
@@ -68,14 +69,13 @@ class extractor:
             data = file_in.read(self.firmware_parts[len(self.firmware_parts)-1].size)
             file_out.write(data)
             file_in.close()
-            # TODO: Change the hardcoded padding size.
-            padding = (8388688 - (self.firmware_parts[len(self.firmware_parts)-1].offset + self.firmware_parts[len(self.firmware_parts)-1].size))
+            padding = (self.truncate - (self.firmware_parts[len(self.firmware_parts)-1].offset + self.firmware_parts[len(self.firmware_parts)-1].size))
+            print(f"Padding {self.firmware_parts[len(self.firmware_parts)-1].name} - {hex(padding)}")
             file_out.write(b'\xff' * padding)
-            print(f"Padding {part_curr.name} - {hex(padding)}")
             file_out.close()
 
     def help(self):
-        print("Usage: python extract.py <operation: (pack/unpack)> <bin-file> <exctraction-path>")
+        print("Usage: python extract.py <operation: (pack/unpack)> <truncate-to-length> <bin-file> <exctraction-path>")
 
     def print_settings(self):
         print("Operation: " + self.op)
