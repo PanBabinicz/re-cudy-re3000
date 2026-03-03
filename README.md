@@ -236,3 +236,37 @@ Try `iptables -h' or 'iptables --help' for more information.
 > Discovered the `validate_firmware_image` POSIX shell script, which may be invoked by the web-based management
 > interface during firmware upgrades to perform integrity checks such as checksum validation, model verification,
 > and size enforcement.
+
+```console
+0005a9f0: ffffffffffffffffff**d00dfeed**00001c  ................ <-- d00dfeed is magic number
+0005aa00: 40000000380000197c00000028000000  @...8...|...(...
+0005aa10: 110000001000000000000002c2000019  ................
+0005aa20: 44000000000000000000000000000000  D...............
+0005aa30: 00000000010000000000000003000000  ................
+0005aa40: 24000000006d6564696174656b2c6d74  $....mediatek,mt
+0005aa50: 37393831006d6564696174656b2c6d74  7981.mediatek,mt
+0005aa60: 373938312d7266620000000003000000  7981-rfb........
+0005aa70: 040000000b0000000100000003000000  ................
+0005aa80: 040000001c0000000100000003000000  ................
+0005aa90: 040000002b0000000100000003000000  ....+...........
+```
+
+```sh
+	*snor*)
+		#FIP size is 0x80000
+		oem-check -b "$board" -o 0x80000 -f "$1"
+
+		[ "$?" -eq 0 ] && return 0
+
+		return 1
+		;;
+	*)
+		[ "$magic" != "d00dfeed" ] && { <--- HERE
+			echo "Invalid image type."
+			return 1
+		}
+
+		return 0
+		;;
+	esac
+```
